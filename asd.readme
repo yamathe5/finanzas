@@ -1,0 +1,104 @@
+    
+
+ALGORITMO ProyeccionBonoAleman
+
+// 1. Obtener Datos de Entrada
+LEER ValorNominal (VN)
+LEER TerminoTotalPeriodos
+LEER TasaInteresValor
+LEER TasaInteresTipo ("Efectiva" o "Nominal")
+LEER TasaInteresCapitalizacionPeriodos (Ej: 12 para mensual si tasa es anual)
+LEER PeriodosGraciaTotal
+LEER PeriodosGraciaParcial
+LEER PrecioCompra // Para TREA y Precio Máximo del Bonista
+LEER PrecioEmision // Para TCEA del Emisor (si es diferente del VN)
+LEER GastosEmision // Para TCEA
+LEER ComisionesBonista // Para TREA
+// Puedes añadir otros costos/ingresos si aplican
+
+// 2. Pre-procesamiento y Parámetros Iniciales
+TasaEfectivaPeriodica = CALCULAR_TASA_EFECTIVA_PERIODICA(TasaInteresValor, TasaInteresTipo, TasaInteresCapitalizacionPeriodos)
+NumeroPeriodosAmortizacion = TerminoTotalPeriodos - PeriodosGraciaTotal
+
+SI NumeroPeriodosAmortizacion <= 0 ENTONCES
+    ESCRIBIR "Error: El número de períodos de amortización debe ser mayor que cero."
+    TERMINAR ALGORITMO
+FIN SI
+
+AmortizacionConstante = ValorNominal / NumeroPeriodosAmortizacion
+
+// 3. Inicializar Estructuras de Datos
+TablaAmortizacion = LISTA_VACIA
+FlujosEmisor = LISTA_VACIA
+FlujosBonista = LISTA_VACIA
+SaldoActual = ValorNominal
+
+// 4. Generar Flujos Iniciales (Período 0)
+Agregar(FlujosEmisor, Perido=0, Flujo = PrecioEmision - GastosEmision) // Asumiendo Emisor recibe PrecioEmision
+Agregar(FlujosBonista, Perido=0, Flujo = -PrecioCompra - ComisionesBonista) // Asumiendo Bonista paga PrecioCompra
+
+// 5. Generar Tabla de Amortización y Flujos Periódicos (Bucle)
+PARA Periodo = 1 HASTA TerminoTotalPeriodos HACER
+    SaldoInicialPeriodo = SaldoActual
+    InteresPeriodo = SaldoInicialPeriodo * TasaEfectivaPeriodica
+    AmortizacionPeriodo = 0
+    CuotaTotalPeriodo = 0
+
+    SI Periodo <= PeriodosGraciaTotal ENTONCES // Gracia Total
+        AmortizacionPeriodo = 0
+        CuotaTotalPeriodo = 0 // No hay pago periódico
+        SaldoFinalPeriodo = SaldoInicialPeriodo + InteresPeriodo // Interés se capitaliza
+    SINO SI Periodo <= PeriodosGraciaTotal + PeriodosGraciaParcial ENTONCES // Gracia Parcial
+        AmortizacionPeriodo = 0
+        CuotaTotalPeriodo = InteresPeriodo // Solo se paga interés
+        SaldoFinalPeriodo = SaldoInicialPeriodo // Principal no varía
+    SINO // Período normal de Amortización
+        AmortizacionPeriodo = AmortizacionConstante
+        CuotaTotalPeriodo = AmortizacionPeriodo + InteresPeriodo
+        SaldoFinalPeriodo = SaldoInicialPeriodo - AmortizacionPeriodo
+    FIN SI
+
+    // Ajuste para el último período
+    SI Periodo == TerminoTotalPeriodos ENTONCES
+        AmortizacionPeriodo = SaldoInicialPeriodo // Amortiza el saldo remanente
+        CuotaTotalPeriodo = AmortizacionPeriodo + InteresPeriodo // Ajusta cuota
+        SaldoFinalPeriodo = 0 // El saldo debe ser cero al final
+    FIN SI
+
+    // Registrar en Tabla de Amortización
+    Agregar(TablaAmortizacion, {Periodo, SaldoInicialPeriodo, InteresPeriodo, AmortizacionPeriodo, CuotaTotalPeriodo, SaldoFinalPeriodo})
+
+    // Registrar Flujos Periódicos
+    Agregar(FlujosEmisor, {Perido=Periodo, Flujo = -CuotaTotalPeriodo}) // Emisor paga (salida)
+    Agregar(FlujosBonista, {Perido=Periodo, Flujo = +CuotaTotalPeriodo}) // Bonista recibe (entrada)
+
+    // Actualizar Saldo para el siguiente período
+    SaldoActual = SaldoFinalPeriodo
+
+FIN PARA
+
+// 6. Calcular Indicadores Financieros
+TCEA = CALCULAR_TIR(FlujosEmisor) // Necesitas definir esta función o proceso en 6c
+TREA = CALCULAR_TIR(FlujosBonista) // Necesitas definir esta función o proceso en 6c
+
+// Necesitas las fórmulas para Duración, Duración Modificada y Convexidad en 6c
+// Luego, llama o implementa el cálculo aquí usando FlujosBonista y TREA
+Duracion = CALCULAR_DURACION(FlujosBonista desde Perido 1, TREA)
+DuracionModificada = CALCULAR_DURACION_MODIFICADA(Duracion, TasaEfectivaPeriodica) // O usar TREA periódica si aplica
+Convexidad = CALCULAR_CONVEXIDAD(FlujosBonista desde Perido 1, TREA)
+
+// 7. Calcular Precio Máximo (Valor Presente de Flujos Bonista descontados a TREA)
+// Asumimos descontar los flujos periódicos (Periodo 1 en adelante) a la TREA periódica.
+PrecioMaximo = CALCULAR_VALOR_PRESENTE(FlujosBonista desde Perido 1, TREA) // Necesitas definir esta función o proceso
+
+// 8. Presentar Resultados (Datos de Salida)
+ESCRIBIR "Tabla de Amortización:"
+MOSTRAR TablaAmortizacion
+ESCRIBIR "TCEA:", TCEA
+ESCRIBIR "TREA:", TREA
+ESCRIBIR "Duración:", Duracion
+ESCRIBIR "Duración Modificada:", DuracionModificada
+ESCRIBIR "Convexidad:", Convexidad
+ESCRIBIR "Precio Máximo (basado en TREA):", PrecioMaximo
+
+FIN ALGORITMO
